@@ -191,7 +191,7 @@ A `SessionTransaction` object represents a transaction in the context of a sessi
 #[derive(Copy, Drop, Serde)]
 struct SessionTransaction {
     session_authorization: Span<felt252>,
-    calls: Span<Call>
+    calls: Span<Call>,
 }
 ```
 
@@ -223,9 +223,15 @@ Call the `execute_session_transaction` method on the account:
 ```rust
 let account = ISessionTransactionExecutionDispatcher { contract_address: acount_address };
 // pre-execution logic...
-let results = account.execute_session_transaction(session_request, session_transaction, signature);
+let results = account.execute_session_transaction(session_request, session_transaction, proofs, signature);
 // post-execution logic...
 ```
+
+Account should validate the following permissions in `execute_session_transaction` before executing the transaction:
+- It should validate that the session has not expired yet
+- It should calculate the hash of the `session_request` object and validate that the signature - `session_auhorization` is valid
+- It should validate that the given calls do belong to the approved allowed methods list using the `proofs` parameter
+- It validates that the `signature` field is a valid signature by the approved session key guid
 
 ### Revoke Session
 To revoke a session a user account should call `revoke_session(session_hash)` on itself with a session's key guid as a parameter.
