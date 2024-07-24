@@ -140,6 +140,96 @@ let results = account.execute_from_outside(outside_execution, signature);
 // post-execution logic...
 ```
 
+## Outside execution session support
+
+<!-- ### Motivation for outside session execution --> -->
+
+### Beginning a session
+
+#### 1. Build `SessionRequest` object
+
+A `SessionRequest` object represents a set of permissions given by an account allowing a dapp to send permission biding transactions in behalf of the user account.
+
+```rust
+#[derive(Copy, Drop, Serde)]
+struct SessionRequest {
+    expires_at: u64,
+    allowed_method_root: felt252,
+    session_address: ContractAddress,
+    spending_limit: u128,
+}
+```
+
+- **expires_at**: Timestamp of the expiration of this session
+- **allowed_method_root**: Merkle root of a merkle tree which represents the allowed methods. 
+- **session_address**: Allowed executor of the session transactions
+- **spending_limit**: Spending limit of the requested session
+
+#### 2. Sign `SessionRequest` object with SNIP-12 typed data hashing
+
+A dapp should request a wallet to sign the following object using SNIP-12 typed data hashing
+
+```rust
+  SessionRequest: [
+    { name: "Expires At", type: "u128" },
+    { name: "Allowed Method Root", type: "felt" },
+    { name: "Session Address", type: "ContractAddress" },
+    { name: "Spending Limit", type: "u128" },
+  ]
+```
+The type hash of `SessionRequest` is
+**`H('"SessionRequest"("Expires At":"u128","Allowed Method Root":"felt","Session Address":"ContractAddress","Spending Limit":"u128"')`**
+
+### Sending transactions in the context of a session
+
+#### 1. Build `SessionTransaction` object
+
+A `SessionTransaction` object represents a transaction in the context of a session. If it adheres to the permissions of a session which was authorized by a user account then the calls will be executed in the name of the user account.
+
+```rust
+#[derive(Copy, Drop, Serde)]
+struct SessionTransaction {
+    session_authorization: Span<felt252>,
+    calls: Span<Call>
+}
+```
+
+- **session_authorization**: a signature in the account's format of the `SessionRequest` object
+- **calls**: list of calls, these should adhere to the policies defined by the `SessionRequest`
+
+#### 2. Sign `SessionTransaction` object with SNIP-12 typed data hashing
+dapp signs
+
+```rust
+  SessionTransaction: [
+    { name: "Session Authorization", type: "felt*" },
+    { name: "Calls", type: "Call*" },
+  ]
+  Call: [
+    { name: "To", type: "ContractAddress" },
+    { name: "Selector", type: "selector" },
+    { name: "Calldata", type: "felt*" },
+  ]
+```
+
+The type hash of `SessionTransaction` is
+**`H('"SessionTransaction"("Session Authorization":"felt*","Calls":"Call*")"Call"("To":"ContractAddress","Selector":"selector","Calldata":"felt*")')`**
+
+#### 3. Pass the structure and signature to account
+
+Call the `execute_session_transaction` method on the account:
+
+```rust
+let account = ISessionTransactionExecutionDispatcher { contract_address: acount_address };
+// pre-execution logic...
+let results = account.execute_session_transaction(session_request, session_transaction, signature);
+// post-execution logic...
+```
+
+### Revoke Session
+To revoke a session a user account should call `revoke_session(session_key_guid)` on itself with a session's key guid as a parameter.
+
+
 ### For account builders
 
 #### Version 1
