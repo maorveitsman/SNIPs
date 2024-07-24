@@ -142,28 +142,29 @@ let results = account.execute_from_outside(outside_execution, signature);
 
 ## Outside execution session support
 
-<!-- ### Motivation for outside session execution --> -->
+### Initiating a session
 
-### Beginning a session
+#### 1. Build a `SessionRequest` object
 
-#### 1. Build `SessionRequest` object
-
-A `SessionRequest` object represents a set of permissions given by an account allowing a dapp to send permission biding transactions in behalf of the user account.
+A `SessionRequest` object represents a set of permissions given by an account to the requesting party, allowing it to send any transactions in its behalf that abide to these permissions.
 
 ```rust
 #[derive(Copy, Drop, Serde)]
 struct SessionRequest {
     expires_at: u64,
     allowed_method_root: felt252,
-    session_address: ContractAddress,
+    session_key_guid: felt,
     spending_limit: u128,
 }
 ```
 
 - **expires_at**: Timestamp of the expiration of this session
-- **allowed_method_root**: Merkle root of a merkle tree which represents the allowed methods. 
+- **allowed_method_root**: Merkle root of a merkle tree which represents the allowed methods.
 - **session_address**: Allowed executor of the session transactions
 - **spending_limit**: Spending limit of the requested session
+
+### 1.1. Constructing the allowed methods Merkle tree
+
 
 #### 2. Sign `SessionRequest` object with SNIP-12 typed data hashing
 
@@ -182,9 +183,9 @@ The type hash of `SessionRequest` is
 
 ### Sending transactions in the context of a session
 
-#### 1. Build `SessionTransaction` object
+#### 1. Build a `SessionTransaction` object
 
-A `SessionTransaction` object represents a transaction in the context of a session. If it adheres to the permissions of a session which was authorized by a user account then the calls will be executed in the name of the user account.
+A `SessionTransaction` object represents a transaction in the context of a session. If it adheres to the permissions which were authorized by the user account then the calls will be executed in the name of the user account.
 
 ```rust
 #[derive(Copy, Drop, Serde)]
@@ -194,8 +195,8 @@ struct SessionTransaction {
 }
 ```
 
-- **session_authorization**: a signature in the account's format of the `SessionRequest` object
-- **calls**: list of calls, these should adhere to the policies defined by the `SessionRequest`
+- **session_authorization**: A signature in the account's format of the `SessionRequest` object
+- **calls**: List of calls, these should adhere to the policies defined by the `SessionRequest`
 
 #### 2. Sign `SessionTransaction` object with SNIP-12 typed data hashing
 dapp signs
@@ -227,7 +228,8 @@ let results = account.execute_session_transaction(session_request, session_trans
 ```
 
 ### Revoke Session
-To revoke a session a user account should call `revoke_session(session_key_guid)` on itself with a session's key guid as a parameter.
+To revoke a session a user account should call `revoke_session(session_hash)` on itself with a session's key guid as a parameter.
+Where `session_hash` is the hash of the `SessionRequest` object signed on by the user account.
 
 
 ### For account builders
